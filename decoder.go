@@ -140,6 +140,7 @@ func (d *decode) decode() error {
 	var expiry int64
 	firstDB := true
 	for {
+		d.offset = d.pos
 		objType, err := d.readByte()
 		if err != nil {
 			return err
@@ -186,6 +187,7 @@ func (d *decode) decode() error {
 				return err
 			}
 			d.event.StartDatabase(int(db), d.offset)
+			firstDB = false
 		case rdbFlagEOF:
 			d.event.EndDatabase(int(db), d.offset)
 			d.event.EndRDB()
@@ -201,7 +203,6 @@ func (d *decode) decode() error {
 			}
 			expiry = 0
 		}
-		d.offset = d.pos
 	}
 
 	panic("not reached")
