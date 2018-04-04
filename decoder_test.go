@@ -181,15 +181,6 @@ func (s *DecoderSuite) TestRDBv7(c *C) {
 	c.Assert(z[2], Equals, "boo")
 }
 
-func (s *DecoderSuite) TestDumpDecoder(c *C) {
-	r := &FakeRedis{}
-	err := rdb.DecodeDump([]byte("\u0000\xC0\n\u0006\u0000\xF8r?\xC5\xFB\xFB_("), 1, []byte("test"), 123, r)
-	if err != nil {
-		c.Error(err)
-	}
-	c.Assert(r.dbs[1]["test"], Equals, "10")
-}
-
 func decodeRDB(name string) *FakeRedis {
 	r := &FakeRedis{}
 	f, err := os.Open("fixtures/" + name + ".rdb")

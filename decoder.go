@@ -9,8 +9,6 @@ import (
 	"io"
 	"math"
 	"strconv"
-
-	"github.com/groove-x/rdb/crc64"
 )
 
 // A Decoder must be implemented to parse a RDB file.
@@ -65,26 +63,6 @@ type Decoder interface {
 func Decode(r io.Reader, d Decoder) error {
 	decoder := &decode{d, make([]byte, 8), bufio.NewReader(r)}
 	return decoder.decode()
-}
-
-// Decode a byte slice from the Redis DUMP command. The dump does not contain the
-// database, key or expiry, so they must be included in the function call (but
-// can be zero values).
-func DecodeDump(dump []byte, db int, key []byte, expiry int64, d Decoder) error {
-	err := verifyDump(dump)
-	if err != nil {
-		return err
-	}
-
-	decoder := &decode{d, make([]byte, 8), bytes.NewReader(dump[1:])}
-	decoder.event.StartRDB()
-	decoder.event.StartDatabase(db)
-
-	err = decoder.readObject(key, ValueType(dump[0]), expiry)
-
-	decoder.event.EndDatabase(db)
-	decoder.event.EndRDB()
-	return err
 }
 
 type byteReader interface {
@@ -811,26 +789,10 @@ func (d *decode) readLength() (uint32, bool, error) {
 			length, err := d.readUint32Big()
 			return length, false, err
 		}
-		
+
 	}
 
 	panic("not reached")
-}
-
-func verifyDump(d []byte) error {
-	if len(d) < 10 {
-		return fmt.Errorf("rdb: invalid dump length")
-	}
-	version := binary.LittleEndian.Uint16(d[len(d)-10:])
-	if version != uint16(Version) {
-		return fmt.Errorf("rdb: invalid version %d, expecting %d", version, Version)
-	}
-
-	if binary.LittleEndian.Uint64(d[len(d)-8:]) != crc64.Digest(d[:len(d)-8]) {
-		return fmt.Errorf("rdb: invalid CRC checksum")
-	}
-
-	return nil
 }
 
 func lzfDecompress(in []byte, outlen int) []byte {
