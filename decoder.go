@@ -17,7 +17,7 @@ type Decoder interface {
 	StartRDB()
 	// StartDatabase is called when database n starts.
 	// Once a database starts, another database will not start until EndDatabase is called.
-	StartDatabase(n int)
+	StartDatabase(n int, offset int)
 	// AUX field
 	Aux(key, value []byte)
 	// ResizeDB hint
@@ -54,14 +54,14 @@ type Decoder interface {
 	// EndZSet is called when there are no more members in a sorted set.
 	EndZSet(key []byte)
 	// EndDatabase is called at the end of a database.
-	EndDatabase(n int)
+	EndDatabase(n int, offset int)
 	// EndRDB is called when parsing of the RDB file is complete.
 	EndRDB()
 }
 
 // Decode parses a RDB file from r and calls the decode hooks on d.
 func Decode(r io.Reader, d Decoder) error {
-	decoder := &decode{d, make([]byte, 8), bufio.NewReader(r)}
+	decoder := &decode{d, make([]byte, 8), bufio.NewReader(r), 0, 0}
 	return decoder.decode()
 }
 
@@ -74,6 +74,8 @@ type decode struct {
 	event  Decoder
 	intBuf []byte
 	r      byteReader
+	pos    int
+	offset int
 }
 
 type ValueType byte
@@ -138,7 +140,7 @@ func (d *decode) decode() error {
 	var expiry int64
 	firstDB := true
 	for {
-		objType, err := d.r.ReadByte()
+		objType, err := d.readByte()
 		if err != nil {
 			return err
 		}
@@ -164,28 +166,28 @@ func (d *decode) decode() error {
 			}
 			d.event.ResizeDatabase(dbSize, expiresSize)
 		case rdbFlagExpiryMS:
-			_, err := io.ReadFull(d.r, d.intBuf)
+			_, err := d.readFull(d.intBuf)
 			if err != nil {
 				return err
 			}
 			expiry = int64(binary.LittleEndian.Uint64(d.intBuf))
 		case rdbFlagExpiry:
-			_, err := io.ReadFull(d.r, d.intBuf[:4])
+			_, err := d.readFull(d.intBuf[:4])
 			if err != nil {
 				return err
 			}
 			expiry = int64(binary.LittleEndian.Uint32(d.intBuf)) * 1000
 		case rdbFlagSelectDB:
 			if !firstDB {
-				d.event.EndDatabase(int(db))
+				d.event.EndDatabase(int(db), d.offset)
 			}
 			db, _, err = d.readLength()
 			if err != nil {
 				return err
 			}
-			d.event.StartDatabase(int(db))
+			d.event.StartDatabase(int(db), d.offset)
 		case rdbFlagEOF:
-			d.event.EndDatabase(int(db))
+			d.event.EndDatabase(int(db), d.offset)
 			d.event.EndRDB()
 			return nil
 		default:
@@ -199,9 +201,20 @@ func (d *decode) decode() error {
 			}
 			expiry = 0
 		}
+		d.offset = d.pos
 	}
 
 	panic("not reached")
+}
+
+func (d *decode) readByte() (byte, error) {
+	d.pos += 1
+	return d.r.ReadByte()
+}
+
+func (d *decode) readFull(buf []byte) (n int, err error) {
+	d.pos += len(buf)
+	return io.ReadFull(d.r, buf)
 }
 
 func (d *decode) readObject(key []byte, typ ValueType, expiry int64) error {
@@ -261,14 +274,14 @@ func (d *decode) readObject(key []byte, typ ValueType, expiry int64) error {
 			if err != nil {
 				return err
 			}
-			var score float64;
+			var score float64
 			if typ == TypeZSet2 {
-				score, err = d.readDouble64();
+				score, err = d.readDouble64()
 				if err != nil {
 					return err
 				}
 			} else {
-				score, err = d.readFloat64();
+				score, err = d.readFloat64()
 				if err != nil {
 					return err
 				}
@@ -609,7 +622,7 @@ func (d *decode) readIntset(key []byte, expiry int64) error {
 
 func (d *decode) checkHeader() error {
 	header := make([]byte, 9)
-	_, err := io.ReadFull(d.r, header)
+	_, err := d.readFull(header)
 	if err != nil {
 		return err
 	}
@@ -652,7 +665,7 @@ func (d *decode) readString() ([]byte, error) {
 				return nil, err
 			}
 			compressed := make([]byte, clen)
-			_, err = io.ReadFull(d.r, compressed)
+			_, err = d.readFull(compressed)
 			if err != nil {
 				return nil, err
 			}
@@ -665,17 +678,17 @@ func (d *decode) readString() ([]byte, error) {
 	}
 
 	str := make([]byte, length)
-	_, err = io.ReadFull(d.r, str)
+	_, err = d.readFull(str)
 	return str, err
 }
 
 func (d *decode) readUint8() (uint8, error) {
-	b, err := d.r.ReadByte()
+	b, err := d.readByte()
 	return uint8(b), err
 }
 
 func (d *decode) readUint16() (uint16, error) {
-	_, err := io.ReadFull(d.r, d.intBuf[:2])
+	_, err := d.readFull(d.intBuf[:2])
 	if err != nil {
 		return 0, err
 	}
@@ -683,7 +696,7 @@ func (d *decode) readUint16() (uint16, error) {
 }
 
 func (d *decode) readUint32() (uint32, error) {
-	_, err := io.ReadFull(d.r, d.intBuf[:4])
+	_, err := d.readFull(d.intBuf[:4])
 	if err != nil {
 		return 0, err
 	}
@@ -699,7 +712,7 @@ func (d *decode) readUint32Big() (uint32, error) {
 }
 
 func (d *decode) readUint64() (uint64, error) {
-	_, err := io.ReadFull(d.r, d.intBuf)
+	_, err := d.readFull(d.intBuf)
 	if err != nil {
 		return 0, err
 	}
@@ -719,8 +732,8 @@ func (d *decode) readDouble64() (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	bits := binary.LittleEndian.Uint64(d.intBuf);
-	return float64(math.Float64frombits(bits)), nil;
+	bits := binary.LittleEndian.Uint64(d.intBuf)
+	return float64(math.Float64frombits(bits)), nil
 }
 
 // Doubles are saved as strings prefixed by an unsigned
@@ -744,7 +757,7 @@ func (d *decode) readFloat64() (float64, error) {
 		return math.Inf(-1), nil
 	default:
 		floatBytes := make([]byte, length)
-		_, err := io.ReadFull(d.r, floatBytes)
+		_, err := d.readFull(floatBytes)
 		if err != nil {
 			return 0, err
 		}
@@ -759,7 +772,7 @@ func (d *decode) readFloat64() (float64, error) {
  * https://rdb.fnordig.de/file_format.html#length-encoding
  */
 func (d *decode) readLength() (uint32, bool, error) {
-	b, err := d.r.ReadByte()
+	b, err := d.readByte()
 	if err != nil {
 		return 0, false, err
 	}
@@ -770,7 +783,7 @@ func (d *decode) readLength() (uint32, bool, error) {
 		return uint32(b & 0x3f), false, nil
 	case rdb14bitLen:
 		// When the first two bits are 01, the next 14 bits are the length.
-		bb, err := d.r.ReadByte()
+		bb, err := d.readByte()
 		if err != nil {
 			return 0, false, err
 		}

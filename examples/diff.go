@@ -16,7 +16,7 @@ type decoder struct {
 	nopdecoder.NopDecoder
 }
 
-func (p *decoder) StartDatabase(n int) {
+func (p *decoder) StartDatabase(n int, offset int) {
 	p.db = n
 }
 

@@ -234,7 +234,7 @@ func (r *FakeRedis) StartRDB() {
 	r.expiresSize = make(map[int]uint32)
 }
 
-func (r *FakeRedis) StartDatabase(n int) {
+func (r *FakeRedis) StartDatabase(n int, offset int) {
 	r.dbs[n] = make(map[string]interface{})
 	r.expiries[n] = make(map[string]int64)
 	r.lengths[n] = make(map[string]int)
@@ -318,7 +318,7 @@ func (r *FakeRedis) EndZSet(key []byte) {
 	}
 }
 
-func (r *FakeRedis) EndDatabase(n int) {
+func (r *FakeRedis) EndDatabase(n int, offset int) {
 	if n != r.cdb {
 		panic(fmt.Sprintf("database end called with %d, expected %d", n, r.cdb))
 	}
