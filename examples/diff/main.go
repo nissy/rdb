@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cupcake/rdb"
-	"github.com/cupcake/rdb/nopdecoder"
+	"github.com/groove-x/rdb"
+	"github.com/groove-x/rdb/nopdecoder"
 )
 
 type decoder struct {
@@ -16,7 +16,7 @@ type decoder struct {
 	nopdecoder.NopDecoder
 }
 
-func (p *decoder) StartDatabase(n int) {
+func (p *decoder) StartDatabase(n int, offset int) {
 	p.db = n
 }
 
