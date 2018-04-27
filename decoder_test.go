@@ -324,7 +324,7 @@ func (r *FakeRedis) EndDatabase(n int, offset int) {
 	}
 }
 
-func (r *FakeRedis) EndRDB() {
+func (r *FakeRedis) EndRDB(offset int) {
 	r.ended++
 }
 
