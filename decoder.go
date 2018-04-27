@@ -56,7 +56,7 @@ type Decoder interface {
 	// EndDatabase is called at the end of a database.
 	EndDatabase(n int, offset int)
 	// EndRDB is called when parsing of the RDB file is complete.
-	EndRDB()
+	EndRDB(offset int)
 }
 
 // Decode parses a RDB file from r and calls the decode hooks on d.
@@ -190,7 +190,7 @@ func (d *decode) decode() error {
 			firstDB = false
 		case rdbFlagEOF:
 			d.event.EndDatabase(int(db), d.offset)
-			d.event.EndRDB()
+			d.event.EndRDB(d.offset)
 			return nil
 		default:
 			key, err := d.readString()
