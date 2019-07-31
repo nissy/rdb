@@ -5,9 +5,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/groove-x/rdb"
-	"github.com/groove-x/rdb/crc64"
-	"github.com/groove-x/rdb/nopdecoder"
+	"github.com/tao12345666333/rdb"
+	"github.com/tao12345666333/rdb/crc64"
+	"github.com/tao12345666333/rdb/nopdecoder"
 )
 
 type decoder struct {

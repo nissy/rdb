@@ -1,5 +1,5 @@
 // Package rdb implements parsing and encoding of the Redis RDB file format.
-package rdb
+package rdb // import "github.com/tao12345666333/rdb"
 
 import (
 	"bufio"
@@ -20,6 +20,8 @@ type Decoder interface {
 	StartDatabase(n int, offset int)
 	// AUX field
 	Aux(key, value []byte)
+	// ModuleAux()
+	ModuleAux(modName []byte)
 	// ResizeDB hint
 	ResizeDatabase(dbSize, expiresSize uint32)
 	// Set is called once for each string key.
@@ -81,20 +83,22 @@ type decode struct {
 type ValueType byte
 
 const (
-	TypeString ValueType = 0
-	TypeList   ValueType = 1
-	TypeSet    ValueType = 2
-	TypeZSet   ValueType = 3
-	TypeHash   ValueType = 4
-	TypeZSet2  ValueType = 5
-	TypeModule ValueType = 6
+	TypeString  ValueType = 0
+	TypeList    ValueType = 1
+	TypeSet     ValueType = 2
+	TypeZSet    ValueType = 3
+	TypeHash    ValueType = 4
+	TypeZSet2   ValueType = 5
+	TypeModule  ValueType = 6
+	TypeModule2 ValueType = 7
 
-	TypeHashZipmap    ValueType = 9
-	TypeListZiplist   ValueType = 10
-	TypeSetIntset     ValueType = 11
-	TypeZSetZiplist   ValueType = 12
-	TypeHashZiplist   ValueType = 13
-	TypeListQuicklist ValueType = 14
+	TypeHashZipmap      ValueType = 9
+	TypeListZiplist     ValueType = 10
+	TypeSetIntset       ValueType = 11
+	TypeZSetZiplist     ValueType = 12
+	TypeHashZiplist     ValueType = 13
+	TypeListQuicklist   ValueType = 14
+	TypeStreamListpacks ValueType = 15
 )
 
 const (
@@ -104,12 +108,15 @@ const (
 	rdb64bitLen = 0x81
 	rdbEncVal   = 3
 
-	rdbFlagAux      = 0xfa
-	rdbFlagResizeDB = 0xfb
-	rdbFlagExpiryMS = 0xfc
-	rdbFlagExpiry   = 0xfd
-	rdbFlagSelectDB = 0xfe
-	rdbFlagEOF      = 0xff
+	rdbFlagAux       = 0xfa
+	rdbFlagModuleAux = 0xf7
+	rdbFlagResizeDB  = 0xfb
+	rdbFlagExpiryMS  = 0xfc
+	rdbFlagExpiry    = 0xfd
+	rdbFlagIdle      = 0xf8
+	rdbFlagFreq      = 0xf9
+	rdbFlagSelectDB  = 0xfe
+	rdbFlagEOF       = 0xff
 
 	rdbEncInt8  = 0
 	rdbEncInt16 = 1
@@ -156,6 +163,13 @@ func (d *decode) decode() error {
 				return err
 			}
 			d.event.Aux(auxKey, auxVal)
+		case rdbFlagModuleAux:
+			// TODO: need more test
+			modName, err := d.readString()
+			if err != nil {
+				return err
+			}
+			d.event.ModuleAux(modName)
 		case rdbFlagResizeDB:
 			dbSize, _, err := d.readLength()
 			if err != nil {
@@ -320,6 +334,10 @@ func (d *decode) readObject(key []byte, typ ValueType, expiry int64) error {
 		return d.readZiplistHash(key, expiry)
 	case TypeModule:
 		return fmt.Errorf("rdb: unable to read Redis Modules RDB objects (key %s)", key)
+	case TypeModule2:
+		return fmt.Errorf("rdb: unable to read Redis Modules2 RDB objects (key %s)", key)
+	case TypeStreamListpacks:
+		return fmt.Errorf("rdb: unable to read Redis StreamListpacks RDB objects (key %s)", key)
 	default:
 		return fmt.Errorf("rdb: unknown object type %d for key %s", typ, key)
 	}
@@ -633,7 +651,7 @@ func (d *decode) checkHeader() error {
 	}
 
 	version, _ := strconv.ParseInt(string(header[5:]), 10, 64)
-	if version < 1 || version > 8 {
+	if version < 1 || version > 9 {
 		return fmt.Errorf("rdb: invalid RDB version number %d", version)
 	}
 
