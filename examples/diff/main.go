@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/groove-x/rdb"
-	"github.com/groove-x/rdb/nopdecoder"
+	"github.com/tao12345666333/rdb"
+	"github.com/tao12345666333/rdb/nopdecoder"
 )
 
 type decoder struct {
@@ -48,6 +48,14 @@ func (p *decoder) StartZSet(key []byte, cardinality, expiry int64) {
 func (p *decoder) Zadd(key []byte, score float64, member []byte) {
 	fmt.Printf("db=%d %q[%d] -> {%q, score=%g}\n", p.db, key, p.i, member, score)
 	p.i++
+}
+
+func (p *decoder) Aux(auxkey, auxval []byte) {
+	fmt.Printf("db=%d %q -> %q\n", p.db, auxkey, auxval)
+}
+
+func (p *decoder) ModuleAux(modName []byte) {
+	fmt.Printf("db=%d %q \n", p.db, modName)
 }
 
 func maybeFatal(err error) {
