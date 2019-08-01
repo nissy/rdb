@@ -6,6 +6,7 @@ type NopDecoder struct{}
 func (d NopDecoder) StartRDB()                                       {}
 func (d NopDecoder) StartDatabase(n int, offset int)                 {}
 func (d NopDecoder) Aux(key, value []byte)                           {}
+func (d NopDecoder) ModuleAux(modName []byte)                        {}
 func (d NopDecoder) ResizeDatabase(dbSize, expiresSize uint32)       {}
 func (d NopDecoder) EndDatabase(n int, offset int)                   {}
 func (d NopDecoder) EndRDB(offset int)                               {}
