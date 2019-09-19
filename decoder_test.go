@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tao12345666333/rdb"
+	"github.com/nissy/rdb"
 	. "gopkg.in/check.v1"
 )
 
@@ -239,6 +239,10 @@ func (r *FakeRedis) StartDatabase(n int, offset int) {
 	r.expiries[n] = make(map[string]int64)
 	r.lengths[n] = make(map[string]int)
 	r.cdb = n
+}
+
+func (r *FakeRedis) ModuleAux(modName []byte) {
+	//TODO
 }
 
 func (r *FakeRedis) Set(key, value []byte, expiry int64) {

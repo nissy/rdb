@@ -1,5 +1,4 @@
-// Package rdb implements parsing and encoding of the Redis RDB file format.
-package rdb // import "github.com/tao12345666333/rdb"
+package rdb
 
 import (
 	"bufio"
