@@ -1,4 +1,4 @@
-package rdb // import "github.com/tao12345666333/rdb"
+package rdb
 
 import (
 	"errors"
